@@ -60,5 +60,7 @@ inspection related tasks.
 
 ```
 PdfDictionary item;
-item.IsImage()
+if (item.IsImage()) {
+  Image image = item.ToImage();
+}
 ```
