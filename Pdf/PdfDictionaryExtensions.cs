@@ -115,7 +115,8 @@ namespace PdfSharp.Pdf
 
       BitmapData bitmapData = bitmap.LockBits(new Rectangle(0, 0, imageData.Width, imageData.Height), ImageLockMode.WriteOnly, format);
       // We can't just copy the bytes directly; the BitmapData .NET class has a stride (padding) associated with it. 
-      int length = (int)Math.Ceiling(bitmapData.Width * format.GetBitsPerPixel() / 8.0);
+      int bitsPerPixel = ((((int)format >> 8) & 0xFF));
+      int length = (int)Math.Ceiling(bitmapData.Width * bitsPerPixel / 8.0);
       for (int y = 0, height = bitmapData.Height; y < height; y++) {
         int offset = y * length;
         Marshal.Copy(stream, offset, bitmapData.Scan0 + (y * bitmapData.Stride), length);
