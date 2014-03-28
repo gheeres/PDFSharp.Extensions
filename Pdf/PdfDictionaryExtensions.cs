@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using PdfSharp.Pdf.Advanced;
 
 // ReSharper disable once CheckNamespace
@@ -61,10 +62,11 @@ namespace PdfSharp.Pdf
     /// <summary>
     /// Gets the PixelFormat for the specified bits per pixel (bpp) or color depth.
     /// </summary>
-    /// <param name="bitsPerPixel"></param>
+    /// <param name="colorSpace">The colorspace of the image.</param>
+    /// <param name="bitsPerPixel">The number of bits per pixel.</param>
     /// <param name="isIndexed">Optional parameters indicating if the bits are indexed. If indexed, then bitsPerPixel must be less than or equal to 8. Defaults to false.</param>
-    /// <returns></returns>
-    private static PixelFormat GetPixelFormat(int bitsPerPixel, bool isIndexed = false)
+    /// <returns>The pixel format to read the data from.</returns>
+    private static PixelFormat GetPixelFormat(PdfColorSpace colorSpace, int bitsPerPixel, bool isIndexed = false)
     {
       // The number of bits used to represent each color component. 
       // Only a single value may be speciﬁed; the number of bits is the same for all color components. 
@@ -79,7 +81,7 @@ namespace PdfSharp.Pdf
           if (isIndexed) { return (PixelFormat.Format4bppIndexed); }
           break;
         case 8:
-          if (isIndexed) return (PixelFormat.Format8bppIndexed);
+          if ((isIndexed) || (colorSpace is PdfGrayColorSpace)) return (PixelFormat.Format8bppIndexed);
           return (PixelFormat.Format24bppRgb); // 8 bits per component x 3 (R,G,B) = 24
       }
 
@@ -103,12 +105,13 @@ namespace PdfSharp.Pdf
 
       // FlateDecode can be either indexed or a traditional ColorSpace
       bool isIndexed = imageData.ColorSpace.IsIndexed;
-      PixelFormat format = GetPixelFormat(imageData.BitsPerPixel, isIndexed);
+      PixelFormat format = GetPixelFormat(imageData.ColorSpace, imageData.BitsPerPixel, isIndexed);
 
       Bitmap bitmap = new Bitmap(imageData.Width, imageData.Height, format);
 
       // If indexed, retrieve and assign the color palette for the item.
       if ((isIndexed) && (imageData.ColorSpace.IsRGB)) bitmap.Palette = ((PdfIndexedRGBColorSpace) imageData.ColorSpace).ToColorPalette();
+      else if (imageData.ColorSpace is PdfGrayColorSpace) bitmap.Palette = ((PdfGrayColorSpace)imageData.ColorSpace).ToColorPalette(imageData.BitsPerPixel);
 
       // If not an indexed color, the .NET image component expects pixels to be in BGR order. However, our PDF stream is in RGB order.
       byte[] stream = (format == PixelFormat.Format24bppRgb) ? ConvertRGBStreamToBGR(dictionary.Stream.UnfilteredValue) : dictionary.Stream.UnfilteredValue;
@@ -199,13 +202,13 @@ namespace PdfSharp.Pdf
     /// </summary>
     abstract class PdfIndexedColorSpace : PdfColorSpace
     {
-      private int _colors = 0;
+      private int _colors;
 
       /// <summary>The number of colors.</summary>
       public int Colors
       {
         get { return(_colors + 1); }
-        set { _colors = value; }
+        private set { _colors = value; }
       }
 
       /// <summary>Checks to see if the colorspace is an indexed colorspace.</summary>
@@ -262,6 +265,35 @@ namespace PdfSharp.Pdf
       }
 
       /// <summary>
+      /// Creates an empty color palette with the required number of colors.
+      /// </summary>
+      /// <param name="colors">The number of colors to create the palette with.</param>
+      /// <returns>An empty <see cref="ColorPalette"/> with the required number of colors.</returns>
+      public static ColorPalette CreateColorPalette(int colors)
+      {
+        // Unfortunately ColorPalette is a sealed object so we have two options:
+        //
+        // 1.) Create an Image object with with correct PixelFormat and then keep
+        //     a reference to the ColorPalette that was created for the image, overridding
+        //     the colors.
+        // 2.) Use reflection to access the protected constructor.
+        //
+        // We'll choose option 2 since it just feels "right", but is "hacky"
+        Type type = typeof(ColorPalette);
+        return ((ColorPalette)Activator.CreateInstance(type, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.CreateInstance,
+                                                      null, new object[] { colors }, CultureInfo.InvariantCulture));
+      }
+
+      /// <summary>
+      /// Creates an empty color palette with the required number of colors.
+      /// </summary>
+      /// <returns>An empty <see cref="ColorPalette"/> with the required number of colors.</returns>
+      protected virtual ColorPalette CreateColorPalette()
+      {
+        return (CreateColorPalette(Colors));
+      }
+
+      /// <summary>
       /// Converts the specified Pdf colorspace to a Color space.
       /// </summary>
       /// <returns>The ColorPalette representing the raw palette.</returns>
@@ -315,22 +347,11 @@ namespace PdfSharp.Pdf
       /// <returns>The ColorPalette representing the raw palette.</returns>
       public override ColorPalette ToColorPalette()
       {
-        // Unfortunately ColorPalette is a sealed object so we have two options:
-        //
-        // 1.) Create an Image object with with correct PixelFormat and then keep
-        //     a reference to the ColorPalette that was created for the image, overridding
-        //     the colors.
-        // 2.) Use reflection to access the protected constructor.
-        //
-        // We'll choose option 2 since it just feels "right", but is "hacky"
-        Type type = typeof(ColorPalette);
-        ColorPalette colorPalette = (ColorPalette) Activator.CreateInstance(type, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.CreateInstance,
-                                                                            null, new object[] { Colors }, CultureInfo.InvariantCulture);
+        ColorPalette colorPalette = CreateColorPalette();
         for (int color = 0, length = Palette.Length; color < length; color++) {
           colorPalette.Entries[color] = Palette[color];
         }
         return (colorPalette);
-
       }
     }
 
@@ -343,6 +364,34 @@ namespace PdfSharp.Pdf
       public override bool IsRGB
       {
         get { return (true); }
+      }
+    }
+
+    /// <summary>
+    /// Internal class for working with a Gray colorspace
+    /// </summary>
+    class PdfGrayColorSpace : PdfRGBColorSpace
+    {
+      public PdfGrayColorSpace()
+      {
+      }
+
+      /// <summary>
+      /// Converts the specified Pdf colorspace to a Color space.
+      /// </summary>
+      /// <returns>The ColorPalette representing the raw palette.</returns>
+      public ColorPalette ToColorPalette(int bitsPerPixel)
+      {
+        if (bitsPerPixel > 8) throw new ArgumentException("bitsPerPixel", "Can't support grayscale image with more than 8 bits per pixel.");
+
+        int colors = bitsPerPixel > 1 ? Convert.ToInt32(Math.Pow(2, bitsPerPixel)) : bitsPerPixel + 1;
+        ColorPalette palette = PdfIndexedRGBColorSpace.CreateColorPalette(colors);
+
+        Parallel.For(0, colors, (color) => {
+          int gray = (int) Math.Floor((256f - 1)/ (colors - 1) * color);
+          palette.Entries[color] = Color.FromArgb(gray, gray, gray);
+        });
+        return (palette);
       }
     }
 
@@ -417,6 +466,8 @@ namespace PdfSharp.Pdf
           } }, 
           // Standard RGB Colorspace
           { "/DeviceRGB", (a) => new PdfRGBColorSpace() },
+          // Gray Colorspace
+          { "/DeviceGray", (a) => new PdfGrayColorSpace() },
           // Standard CMYK Colorspace
           { "/DeviceCMYK", (a) => {
             throw new NotImplementedException("CMYK encoded images are not supported.");
