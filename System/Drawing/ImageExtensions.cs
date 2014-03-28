@@ -15,26 +15,6 @@ namespace System.Drawing
     /// </summary>
     /// <param name="image">The image to convert to a <see cref="PdfPage"/>.</param>
     /// <returns>The <see cref="PdfPage"/> containing the image.</returns>
-    public static PdfPage ToPdfPage(this Image image)
-    {
-      if (image == null) return(new PdfPage());
-    
-      PdfPage page = new PdfPage() {
-        Width = image.Width,
-        Height = image.Height
-      };
-      XGraphics xGraphics = XGraphics.FromPdfPage(page);
-      XImage xImage = XImage.FromGdiPlusImage(image);
-      xGraphics.DrawImage(xImage, 0, 0, image.Width, image.Height);
-
-      return (page);
-    }
-
-    /// <summary>
-    /// Generates a PDF page from the image.
-    /// </summary>
-    /// <param name="image">The image to convert to a <see cref="PdfPage"/>.</param>
-    /// <returns>The <see cref="PdfPage"/> containing the image.</returns>
     public static PdfDocument ToPdf(this Image image)
     {
       if (image == null) return (new PdfDocument());
@@ -51,10 +31,15 @@ namespace System.Drawing
     {
       PdfDocument document = new PdfDocument();
       foreach (var image in images) {
-        PdfPage page = ToPdfPage(image);
-        if (page != null) {
-          document.AddPage(page);
-        }
+        PdfPage page = new PdfPage() {
+          Width = image.Width,
+          Height = image.Height
+        };
+        XGraphics xGraphics = XGraphics.FromPdfPage(page);
+        XImage xImage = XImage.FromGdiPlusImage(image);
+        xGraphics.DrawImage(xImage, 0, 0, image.Width, image.Height);
+
+        document.AddPage(page);
       }
       return (document);
     }
