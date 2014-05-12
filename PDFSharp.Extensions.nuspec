@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
-<package >
+<package>
   <metadata>
     <id>PDFSharp.Extensions</id>
-    <version>0.1.0.0</version>
+    <version>0.1.1.0</version>
     <title>PDFSharp Extension Methods</title>
     <authors>George Heeres</authors>
     <licenseUrl>https://github.com/gheeres/PDFSharp.Extensions/blob/master/LICENSE</licenseUrl>
@@ -14,6 +14,7 @@
     <tags>pdf pdfsharp image extension</tags>
     <dependencies>
       <dependency id="PdfSharp" />
+      <dependency id="BitMiracle.LibTiff.NET" />
     </dependencies>
   </metadata>
   <files>
