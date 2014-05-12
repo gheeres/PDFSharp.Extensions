@@ -104,10 +104,10 @@ namespace PdfSharp.Pdf
     {
       if (stream == null) return;
 
-      stream.Write(BitConverter.GetBytes((uint)TiffTag.SUBFILETYPE), 0, 2);
-      stream.Write(BitConverter.GetBytes((uint)TiffType.LONG), 0, 2);
-      stream.Write(BitConverter.GetBytes((uint)1), 0, 4);
-      stream.Write(BitConverter.GetBytes((uint)0), 0, 4);
+      stream.Write(BitConverter.GetBytes((uint)tag), 0, 2);
+      stream.Write(BitConverter.GetBytes((uint)type), 0, 2);
+      stream.Write(BitConverter.GetBytes(count), 0, 4);
+      stream.Write(BitConverter.GetBytes(value), 0, 4);
     }
 
     /// <summary>
@@ -162,7 +162,7 @@ namespace PdfSharp.Pdf
 
       PixelFormat format = GetPixelFormat(imageData.ColorSpace, imageData.BitsPerPixel, true);
       Bitmap bitmap = new Bitmap(imageData.Width, imageData.Height, format);
-      bitmap.Palette = ((PdfIndexedColorSpace)imageData.ColorSpace).ToColorPalette();
+      bitmap.Palette = PdfIndexedColorSpace.CreateColorPalette(Color.White, Color.Black);
 
       using (MemoryStream stream = new MemoryStream(GetTiffImageBufferFromCCITTFaxDecode(imageData, dictionary.Stream.Value))) {
         using (Tiff tiff = Tiff.ClientOpen("<INLINE>", "r", stream, new TiffStream())) {
@@ -378,6 +378,30 @@ namespace PdfSharp.Pdf
         Type type = typeof(ColorPalette);
         return ((ColorPalette)Activator.CreateInstance(type, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.CreateInstance,
                                                       null, new object[] { colors }, CultureInfo.InvariantCulture));
+      }
+
+      /// <summary>
+      /// Creates an color palette filled with the specified colors.
+      /// </summary>
+      /// <param name="colors">The colors to fill / create the palette with.</param>
+      /// <returns>An empty <see cref="ColorPalette"/> with the required number of colors.</returns>
+      public static ColorPalette CreateColorPalette(params Color[] colors)
+      {
+        return (CreateColorPalette((IEnumerable<Color>)colors));
+      }
+
+      /// <summary>
+      /// Creates an color palette filled with the specified colors.
+      /// </summary>
+      /// <param name="colors">The colors to fill / create the palette with.</param>
+      /// <returns>An empty <see cref="ColorPalette"/> with the required number of colors.</returns>
+      public static ColorPalette CreateColorPalette(IEnumerable<Color> colors)
+      {
+        ColorPalette palette = CreateColorPalette(colors.Count());
+        Parallel.ForEach(colors, (color, state, index) => {
+          palette.Entries[index] = color;
+        });
+        return (palette);
       }
 
       /// <summary>
