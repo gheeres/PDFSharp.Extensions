@@ -7,8 +7,12 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.AccessControl;
 using System.Threading.Tasks;
+using BitMiracle.LibTiff.Classic;
+using PdfSharp.Drawing;
 using PdfSharp.Pdf.Advanced;
+using PdfSharp.Pdf.IO;
 
 // ReSharper disable once CheckNamespace
 namespace PdfSharp.Pdf
@@ -89,6 +93,97 @@ namespace PdfSharp.Pdf
     }
 
     /// <summary>
+    /// Writes the specified TIFF tag data to the stream.
+    /// </summary>
+    /// <param name="stream">The stream to write to.</param>
+    /// <param name="tag">The <see cref="TiffTag"/> to write.</param>
+    /// <param name="type">The <see cref="TiffType"/> being written.</param>
+    /// <param name="count">The number of values being written.</param>
+    /// <param name="value">The actual value to be written.</param>
+    private static void WriteTiffTag(Stream stream, TiffTag tag, TiffType type, uint count, uint value)
+    {
+      if (stream == null) return;
+
+      stream.Write(BitConverter.GetBytes((uint)TiffTag.SUBFILETYPE), 0, 2);
+      stream.Write(BitConverter.GetBytes((uint)TiffType.LONG), 0, 2);
+      stream.Write(BitConverter.GetBytes((uint)1), 0, 4);
+      stream.Write(BitConverter.GetBytes((uint)0), 0, 4);
+    }
+
+    /// <summary>
+    /// Prepends a proper TIFF image header to the the CCITTFaxDecode image data.
+    /// </summary>
+    /// <param name="imageData">The metadata about the image.</param>
+    /// <param name="image">The original compressed image.</param>
+    /// <returns>A properly formatted TIFF header and the compressed image data.</returns>
+    private static byte[] GetTiffImageBufferFromCCITTFaxDecode(PdfDictionaryImageMetaData imageData, byte[] image)
+    {
+      const short TIFF_BIGENDIAN = 0x4d4d;
+      const short TIFF_LITTLEENDIAN = 0x4949;
+
+      const int ifd_length = 10;
+      const int header_length = 10 + (ifd_length * 12 + 4);
+      using (MemoryStream buffer = new MemoryStream(header_length + image.Length)) {
+        // TIFF Header
+        buffer.Write(BitConverter.GetBytes(BitConverter.IsLittleEndian ? TIFF_LITTLEENDIAN : TIFF_BIGENDIAN), 0, 2); // tiff_magic (big/little endianness)
+        buffer.Write(BitConverter.GetBytes((uint)42), 0, 2);         // tiff_version
+        buffer.Write(BitConverter.GetBytes((uint)8), 0, 4);          // first_ifd (Image file directory) / offset
+        buffer.Write(BitConverter.GetBytes((uint)ifd_length), 0, 2); // ifd_length, number of tags (ifd entries)
+
+        // Dictionary should be in order based on the TiffTag value
+        WriteTiffTag(buffer, TiffTag.SUBFILETYPE, TiffType.LONG, 1, 0);
+        WriteTiffTag(buffer, TiffTag.IMAGEWIDTH, TiffType.LONG, 1, (uint)imageData.Width);
+        WriteTiffTag(buffer, TiffTag.IMAGELENGTH, TiffType.LONG, 1, (uint)imageData.Height);
+        WriteTiffTag(buffer, TiffTag.BITSPERSAMPLE, TiffType.SHORT, 1, (uint)imageData.BitsPerPixel);
+        WriteTiffTag(buffer, TiffTag.COMPRESSION, TiffType.SHORT, 1, (uint) Compression.CCITTFAX4); // CCITT Group 4 fax encoding.
+        WriteTiffTag(buffer, TiffTag.PHOTOMETRIC, TiffType.SHORT, 1, 0); // WhiteIsZero
+        WriteTiffTag(buffer, TiffTag.STRIPOFFSETS, TiffType.LONG, 1, header_length);
+        WriteTiffTag(buffer, TiffTag.SAMPLESPERPIXEL, TiffType.SHORT, 1, 1);
+        WriteTiffTag(buffer, TiffTag.ROWSPERSTRIP, TiffType.LONG, 1, (uint)imageData.Height);
+        WriteTiffTag(buffer, TiffTag.STRIPBYTECOUNTS, TiffType.LONG, 1, (uint)image.Length);
+
+        // Next IFD Offset
+        buffer.Write(BitConverter.GetBytes((uint)0), 0, 4);
+
+        buffer.Write(image, 0, image.Length);
+        return(buffer.GetBuffer());
+      }
+    }
+
+    /// <summary>
+    /// Retrieves the specifed dictionary object as an object encoded with CCITTFaxDecode filter (TIFF).
+    /// </summary>
+    /// <param name="dictionary">The dictionary to extract the object from.</param>
+    /// <returns>The image retrieve from the dictionary. If not found or an invalid image, then null is returned.</returns>
+    private static Image ImageFromCCITTFaxDecode(PdfDictionary dictionary)
+    {
+      Image image = null;
+      PdfDictionaryImageMetaData imageData = new PdfDictionaryImageMetaData(dictionary);
+
+      PixelFormat format = GetPixelFormat(imageData.ColorSpace, imageData.BitsPerPixel, true);
+      Bitmap bitmap = new Bitmap(imageData.Width, imageData.Height, format);
+      bitmap.Palette = ((PdfIndexedColorSpace)imageData.ColorSpace).ToColorPalette();
+
+      using (MemoryStream stream = new MemoryStream(GetTiffImageBufferFromCCITTFaxDecode(imageData, dictionary.Stream.Value))) {
+        using (Tiff tiff = Tiff.ClientOpen("<INLINE>", "r", stream, new TiffStream())) {
+          if (tiff == null) return (null);
+
+          int stride = tiff.ScanlineSize();
+          byte[] buffer = new byte[stride];
+          for (int i = 0; i < imageData.Height; i++) {
+            tiff.ReadScanline(buffer, i);
+
+            Rectangle imgRect = new Rectangle(0, i, imageData.Width, 1);
+            BitmapData imgData = bitmap.LockBits(imgRect, ImageLockMode.WriteOnly, PixelFormat.Format1bppIndexed);
+            Marshal.Copy(buffer, 0, imgData.Scan0, buffer.Length);
+            bitmap.UnlockBits(imgData);
+          }
+        }
+      }
+      return (bitmap);
+    }
+
+    /// <summary>
     /// Retrieves the specifed dictionary object as an object encoded with FlateDecode filter.
     /// </summary>
     /// <remarks>
@@ -163,6 +258,7 @@ namespace PdfSharp.Pdf
       // Setup a default action, "noAction" if the dictionary entry is not found which will return a null image.
       Func<PdfDictionary, Image> noAction = (d) => null;
       IDictionary<string,Func<PdfDictionary, Image>> map = new Dictionary<string, Func<PdfDictionary, Image>>() {
+        { "/CCITTFaxDecode", ImageFromCCITTFaxDecode },
         { "/DCTDecode", ImageFromDCTDecode },
         { "/FlateDecode", ImageFromFlateDecode }
       }; 
