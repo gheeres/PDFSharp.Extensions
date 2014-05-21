@@ -7,12 +7,9 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Security.AccessControl;
 using System.Threading.Tasks;
 using BitMiracle.LibTiff.Classic;
-using PdfSharp.Drawing;
 using PdfSharp.Pdf.Advanced;
-using PdfSharp.Pdf.IO;
 
 // ReSharper disable once CheckNamespace
 namespace PdfSharp.Pdf
@@ -162,7 +159,11 @@ namespace PdfSharp.Pdf
 
       PixelFormat format = GetPixelFormat(imageData.ColorSpace, imageData.BitsPerPixel, true);
       Bitmap bitmap = new Bitmap(imageData.Width, imageData.Height, format);
-      bitmap.Palette = PdfIndexedColorSpace.CreateColorPalette(Color.White, Color.Black);
+
+      // Determine if BLACK=1, create proper indexed color palette.
+      CCITTFaxDecodeParameters ccittFaxDecodeParameters = new CCITTFaxDecodeParameters(dictionary.Elements["/DecodeParms"].Get() as PdfDictionary);
+      if (ccittFaxDecodeParameters.BlackIs1) bitmap.Palette = PdfIndexedColorSpace.CreateColorPalette(Color.Black, Color.White);
+      else bitmap.Palette = PdfIndexedColorSpace.CreateColorPalette(Color.White, Color.Black);
 
       using (MemoryStream stream = new MemoryStream(GetTiffImageBufferFromCCITTFaxDecode(imageData, dictionary.Stream.Value))) {
         using (Tiff tiff = Tiff.ClientOpen("<INLINE>", "r", stream, new TiffStream())) {
@@ -666,5 +667,142 @@ namespace PdfSharp.Pdf
       }
     }
     #endregion Shared Image MetaData
+
+    #region Optional Decode Parameters
+    class CCITTFaxDecodeParameters
+    {
+      private const string _K = "/K";
+      private const string END_OF_LINE = "/EndOfLine";
+      private const string ENCODED_BYTE_ALIGN = "/EncodedByteAlign";
+      private const string COLUMNS = "/Columns";
+      private const string ROWS = "/Rows";
+      private const string END_OF_BLOCK = "/EndOfBlock";
+      private const string BLACK_IS_1 = "/BlackIs1";
+      private const string DAMAGED_ROWS_BEFORE_ERROR = "/DamagedRowsBeforeError";
+
+      private int _columns = 1728;
+      private bool _endOfBlock = true;
+
+      /// <summary>
+      /// A code identifying the encoding scheme used: 
+      /// 
+      ///  <0 = Pure two-dimensional encoding (Group 4) 
+      ///   0 = Pure one-dimensional encoding (Group 3, 1-D) 
+      ///  >0 = Mixed one- and two-dimensional encoding (Group 3, 2-D), 
+      ///       in which a line encoded one-dimensionally can be followed 
+      ///       by at most K − 1 lines encoded two-dimensionally 
+      /// 
+      /// The filter distinguishes among negative, zero, and positive values of 
+      /// K to determine how to interpret the encoded data; however, it does 
+      /// not distinguish between different positive K values. Default value: 0
+      /// </summary>
+      public int K { get; set; }
+
+      /// <summary>
+      /// A flag indicating whether end-of-line bit patterns are required to be 
+      /// present in the encoding. The CCITTFaxDecode filter always accepts 
+      /// end-of-line bit patterns, but requires them only if EndOfLine is true. 
+      /// Default value: false.
+      /// </summary>
+      public bool EndOfLine { get; set; }
+
+      /// <summary>
+      /// A flag indicating whether the filter expects extra 0 bits before each
+      /// encoded line so that the line begins on a byte boundary. If true, the
+      /// filter skips over encoded bits to begin decoding each line at a byte
+      /// boundary. Iffalse, the filter does not expect extra bits in the 
+      /// encoded representation. Default value: false.
+      /// </summary>
+      public bool EncodedByteAlign { get; set; }
+
+      /// <summary>
+      /// The width of the image in pixels. If the value is not a multiple of 8,
+      /// the filter adjusts the width of the unencoded image to the next 
+      /// multiple of 8 so that each line starts on a byte boundary. 
+      /// Default value: 1728
+      /// </summary>
+      public int Columns
+      {
+        get { return(_columns); }
+        set { _columns = value; }
+      }
+
+      /// <summary>
+      /// The height of the image in scan lines. If the value is 0 or absent, the
+      /// image’s height is not predetermined, and the encoded data must be
+      /// terminated by an end-of-block bit pattern or by the end of the filter’s 
+      /// data. Default value: 0.
+      /// </summary>
+      public int Rows { get; set; }
+
+      /// <summary>
+      /// A flag indicating whether the filter expects the encoded data to be 
+      /// terminated by an end-of-block pattern, overriding the Rows parameter.
+      /// If false, the filter stops when it has decoded the number of lines 
+      /// indicated by Rows or when its data has been exhausted, whichever occurs first.
+      /// The end-of-block patter is the CCITT end-of-facsimile-block (EOFB) or
+      /// return-to-contorl (RTC_ appropriate for the K parameter. 
+      /// Default value: true.
+      /// </summary>
+      public bool EndOfBlock
+      {
+        get { return(_endOfBlock); }
+        set { _endOfBlock = value; }
+      }
+
+      /// <summary>
+      /// A flag indicating whether 1 bits are to be interpreted as black pixels 
+      /// and 0 bits as white pixels, the reverse of the normal PDF convention 
+      /// for image data. Default value: false.
+      /// </summary>
+      public bool BlackIs1 { get; set; }
+
+      /// <summary>
+      /// The number of damaged rows of data to be tolerated before an error
+      /// occurs. This entry applies only if EndOfLine is true and K is 
+      /// non-negative. Tolerating a damaged row means locating its end in the
+      /// encoded data by searching for an EndOfLine pattern and then 
+      /// substituting decoded data from the previous row if the previous row
+      /// was not damaged, or a white scan line if the previous row was also
+      /// damaged. Default value: 0.
+      /// </summary>
+      public int DamagedRowsBeforeError { get; set; }
+
+      public CCITTFaxDecodeParameters()
+      {
+      }
+
+      /// <param name="dictionary">The dictionary element to parse / retrieve.</param>
+      public CCITTFaxDecodeParameters(PdfDictionary dictionary):this()
+      {
+        if (dictionary == null) return;
+
+        if (dictionary.Elements.ContainsKey(_K)) {
+          K = dictionary.Elements.GetInteger(_K);
+        }
+        if (dictionary.Elements.ContainsKey(END_OF_LINE)) {
+          EndOfLine = dictionary.Elements.GetBoolean(END_OF_LINE);
+        }
+        if (dictionary.Elements.ContainsKey(ENCODED_BYTE_ALIGN)) {
+          EncodedByteAlign = dictionary.Elements.GetBoolean(ENCODED_BYTE_ALIGN);
+        }
+        if (dictionary.Elements.ContainsKey(COLUMNS)) {
+          Columns = dictionary.Elements.GetInteger(COLUMNS);
+        }
+        if (dictionary.Elements.ContainsKey(ROWS)) {
+          Rows = dictionary.Elements.GetInteger(ROWS);
+        }
+        if (dictionary.Elements.ContainsKey(END_OF_BLOCK)) {
+          EndOfBlock = dictionary.Elements.GetBoolean(END_OF_BLOCK);
+        }
+        if (dictionary.Elements.ContainsKey(BLACK_IS_1)) {
+          BlackIs1 = dictionary.Elements.GetBoolean(BLACK_IS_1);
+        }
+        if (dictionary.Elements.ContainsKey(DAMAGED_ROWS_BEFORE_ERROR)) {
+          DamagedRowsBeforeError = dictionary.Elements.GetInteger(DAMAGED_ROWS_BEFORE_ERROR);
+        }
+      }
+    }
+    #endregion
   }
 }
