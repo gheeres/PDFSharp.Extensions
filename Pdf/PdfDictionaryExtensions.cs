@@ -262,10 +262,18 @@ namespace PdfSharp.Pdf
         { "/CCITTFaxDecode", ImageFromCCITTFaxDecode },
         { "/DCTDecode", ImageFromDCTDecode },
         { "/FlateDecode", ImageFromFlateDecode }
-      }; 
-      
-      string filter = dictionary.Elements.GetName("/Filter");
-      var action = map.ContainsKey(filter) ? map[filter] : noAction;
+      };
+
+      string filter = null;
+      var element = dictionary.Elements["/Filter"];
+      if (element.IsString()) filter = ((PdfString)element).Value;
+      else if (element.IsArray()) {
+        // Grab the first filter mapping that we recognize.
+        filter = ((PdfArray)element).Elements.Where(e => e.IsName() && map.ContainsKey(((PdfName)e).Value))
+                                             .Select(e => ((PdfName)e).Value)
+                                             .FirstOrDefault();
+      }
+      var action = map.ContainsKey(filter ?? String.Empty) ? map[filter] : noAction;
       return (action.Invoke(dictionary));
     }
 
