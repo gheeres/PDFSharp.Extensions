@@ -13,8 +13,8 @@
     <copyright>Copyright 2014</copyright>
     <tags>pdf pdfsharp image extension</tags>
     <dependencies>
-      <dependency id="PdfSharp" />
-      <dependency id="BitMiracle.LibTiff.NET" />
+      <dependency id="PdfSharp" version="1.32.3057.0" />
+      <dependency id="BitMiracle.LibTiff.NET" version="2.3.642.0" />
     </dependencies>
   </metadata>
   <files>
