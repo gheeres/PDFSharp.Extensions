@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>PDFSharp.Extensions</id>
-    <version>0.1.2.0</version>
+    <version>0.1.2.1</version>
     <title>PDFSharp Extension Methods</title>
     <authors>George Heeres</authors>
     <licenseUrl>https://github.com/gheeres/PDFSharp.Extensions/blob/master/LICENSE</licenseUrl>
