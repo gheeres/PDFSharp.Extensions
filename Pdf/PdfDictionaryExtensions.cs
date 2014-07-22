@@ -266,7 +266,7 @@ namespace PdfSharp.Pdf
 
       string filter = null;
       var element = dictionary.Elements["/Filter"];
-      if (element.IsString()) filter = ((PdfString)element).Value;
+      if (element.IsName()) filter = ((PdfName)element).Value;
       else if (element.IsArray()) {
         // Grab the first filter mapping that we recognize.
         filter = ((PdfArray)element).Elements.Where(e => e.IsName() && map.ContainsKey(((PdfName)e).Value))
