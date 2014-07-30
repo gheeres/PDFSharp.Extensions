@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Globalization;
@@ -10,6 +11,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using BitMiracle.LibTiff.Classic;
 using PdfSharp.Pdf.Advanced;
+using PdfSharp.Pdf.Filters;
 
 // ReSharper disable once CheckNamespace
 namespace PdfSharp.Pdf
@@ -246,6 +248,50 @@ namespace PdfSharp.Pdf
       return (stream);
     }
 
+    private static PdfDictionary ProcessFilters(PdfDictionary dictionary)
+    {
+      PdfDictionary result;
+
+      // Create a dictionary mapping (i.e. switch statement) to process the expected filters.
+      var map = new Dictionary<string, Func<byte[], byte[]>>() {
+        { "/FlateDecode", (d) => {
+          var decoder = new FlateDecode();
+          return (decoder.Decode(d));
+        } }
+      };
+
+      // Get all of the filters.
+      var filters = ((PdfArray)dictionary.Elements["/Filter"])
+                                         .Elements.Where(e => e.IsName())
+                                         .Select(e => ((PdfName)e).Value)
+                                         .ToList();
+      // If only one filter in array. Just rewrite the /Filter
+      if (filters.Count == 1) {
+        result = dictionary.Clone();
+        result.Elements["/Filter"] = new PdfName(filters[0]);
+        return (result);
+      }
+      
+      // Process each filter in order. The last filter should be the actual encoded image.
+      byte[] data = dictionary.Stream.Value;
+      for(int index = 0; index < (filters.Count - 1); index++) {
+        if (! map.ContainsKey(filters[index])) {
+          throw new NotSupportedException(String.Format("Encountered embedded image with multiple filters: \"{0}\". Unable to process the filter: \"{1}\".",
+                                                        String.Join(",", filters), filters[index]));
+        }
+        data = map[filters[index]].Invoke(data);
+      }
+
+      result = new PdfDictionary();
+      result.Elements.Add("/Filter", new PdfName(filters.Last()));
+      foreach (var element in dictionary.Elements.Where(e => !String.Equals(e.Key, "/Filter", StringComparison.OrdinalIgnoreCase))) {
+        result.Elements.Add(element.Key, element.Value);
+      }
+      result.CreateStream(data);
+
+      return(result);
+    }
+
     /// <summary>
     /// Retrieves the image from the specified dictionary.
     /// </summary>
@@ -258,7 +304,7 @@ namespace PdfSharp.Pdf
       // Create a dictionary mapping (i.e. switch statement) to handle the different filter types.
       // Setup a default action, "noAction" if the dictionary entry is not found which will return a null image.
       Func<PdfDictionary, Image> noAction = (d) => null;
-      IDictionary<string,Func<PdfDictionary, Image>> map = new Dictionary<string, Func<PdfDictionary, Image>>() {
+      var map = new Dictionary<string, Func<PdfDictionary, Image>>() {
         { "/CCITTFaxDecode", ImageFromCCITTFaxDecode },
         { "/DCTDecode", ImageFromDCTDecode },
         { "/FlateDecode", ImageFromFlateDecode }
@@ -267,12 +313,8 @@ namespace PdfSharp.Pdf
       string filter = null;
       var element = dictionary.Elements["/Filter"];
       if (element.IsName()) filter = ((PdfName)element).Value;
-      else if (element.IsArray()) {
-        // Grab the first filter mapping that we recognize.
-        filter = ((PdfArray)element).Elements.Where(e => e.IsName() && map.ContainsKey(((PdfName)e).Value))
-                                             .Select(e => ((PdfName)e).Value)
-                                             .FirstOrDefault();
-      }
+      else if (element.IsArray()) return(ToImage(ProcessFilters(dictionary)));
+
       var action = map.ContainsKey(filter ?? String.Empty) ? map[filter] : noAction;
       return (action.Invoke(dictionary));
     }
