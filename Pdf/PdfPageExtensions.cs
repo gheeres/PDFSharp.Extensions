@@ -19,19 +19,19 @@ namespace PdfSharp.Pdf
     /// <returns>An enumeration of images contained on the page.</returns>
     public static IEnumerable<Image> GetImages(this PdfPage page, Func<PdfPage, int, Image, Image> filter = null)
     {
-      if (page == null) throw new ArgumentNullException("item", "The provided PDF page was null.");
+      if (page == null) throw new ArgumentNullException("page", "The provided PDF page was null.");
       if (filter == null) filter = (pg, idx, img) => img;
 
       int index = 0;
-      PdfDictionary resources = page.Elements.GetDictionary("/Resources");
+      var resources = page.Elements.GetDictionary("/Resources");
       if (resources != null) {
-        PdfDictionary xObjects = resources.Elements.GetDictionary("/XObject");
+        var xObjects = resources.Elements.GetDictionary("/XObject");
         if (xObjects != null) { 
-          ICollection<PdfItem> items = xObjects.Elements.Values;
+          var items = xObjects.Elements.Values;
           foreach (PdfItem item in items) {
-            PdfReference reference = item as PdfReference;
+            var reference = item as PdfReference;
             if (reference != null) {
-              PdfDictionary xObject = reference.Value as PdfDictionary;
+              var xObject = reference.Value as PdfDictionary;
               if (xObject.IsImage()) {
                 yield return filter.Invoke(page, index++, xObject.ToImage());
               }
