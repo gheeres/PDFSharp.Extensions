@@ -76,8 +76,7 @@ namespace PdfSharp.Pdf
       // Valid values are 1, 2, 4, and 8.
       switch(bitsPerPixel) {
         case 1:
-          if (isIndexed) { return (PixelFormat.Format1bppIndexed);}
-          break;
+          return (PixelFormat.Format1bppIndexed);
         case 2:
           return (PixelFormat.Format4bppIndexed);
         case 4:
