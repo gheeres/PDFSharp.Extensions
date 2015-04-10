@@ -133,7 +133,8 @@ namespace PdfSharp.Pdf
         WriteTiffTag(buffer, TiffTag.IMAGEWIDTH, TiffType.LONG, 1, (uint)imageData.Width);
         WriteTiffTag(buffer, TiffTag.IMAGELENGTH, TiffType.LONG, 1, (uint)imageData.Height);
         WriteTiffTag(buffer, TiffTag.BITSPERSAMPLE, TiffType.SHORT, 1, (uint)imageData.BitsPerPixel);
-        WriteTiffTag(buffer, TiffTag.COMPRESSION, TiffType.SHORT, 1, (uint) Compression.CCITTFAX4); // CCITT Group 4 fax encoding.
+        WriteTiffTag(buffer, TiffTag.COMPRESSION, TiffType.SHORT, 1, (uint)imageData.Compression);
+
         WriteTiffTag(buffer, TiffTag.PHOTOMETRIC, TiffType.SHORT, 1, 0); // WhiteIsZero
         WriteTiffTag(buffer, TiffTag.STRIPOFFSETS, TiffType.LONG, 1, header_length);
         WriteTiffTag(buffer, TiffTag.SAMPLESPERPIXEL, TiffType.SHORT, 1, 1);
@@ -165,6 +166,10 @@ namespace PdfSharp.Pdf
       CCITTFaxDecodeParameters ccittFaxDecodeParameters = new CCITTFaxDecodeParameters(dictionary.Elements["/DecodeParms"].Get() as PdfDictionary);
       if (ccittFaxDecodeParameters.BlackIs1) bitmap.Palette = PdfIndexedColorSpace.CreateColorPalette(Color.Black, Color.White);
       else bitmap.Palette = PdfIndexedColorSpace.CreateColorPalette(Color.White, Color.Black);
+      if (ccittFaxDecodeParameters.K == 0 || ccittFaxDecodeParameters.K > 0)
+          imageData.Compression = Compression.CCITTFAX3;
+      else if (ccittFaxDecodeParameters.K < 0)
+          imageData.Compression = Compression.CCITTFAX4;
 
       using (MemoryStream stream = new MemoryStream(GetTiffImageBufferFromCCITTFaxDecode(imageData, dictionary.Stream.Value))) {
         using (Tiff tiff = Tiff.ClientOpen("<INLINE>", "r", stream, new TiffStream())) {
@@ -673,6 +678,9 @@ namespace PdfSharp.Pdf
       /// <summary>The colorspace information for the image.</summary>
       public PdfColorSpace ColorSpace { get; set; }
 
+      /// <summary>The Compression for the image.</summary>
+      public Compression Compression { get; set; }
+
       /// <param name="dictionary">The dictionary object o parse.</param>
       public PdfDictionaryImageMetaData(PdfDictionary dictionary)
       {
@@ -698,6 +706,8 @@ namespace PdfSharp.Pdf
           ColorSpace = PdfDictionaryColorSpace.Parse(colorSpace);
         }
         else ColorSpace = new PdfRGBColorSpace(); // Default to RGB Color Space
+
+        Compression = Compression.CCITTFAX4;
       }
 
       /// <summary>
