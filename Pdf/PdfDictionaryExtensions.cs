@@ -155,7 +155,6 @@ namespace PdfSharp.Pdf
     /// <returns>The image retrieve from the dictionary. If not found or an invalid image, then null is returned.</returns>
     private static Image ImageFromCCITTFaxDecode(PdfDictionary dictionary)
     {
-      Image image = null;
       PdfDictionaryImageMetaData imageData = new PdfDictionaryImageMetaData(dictionary);
 
       PixelFormat format = GetPixelFormat(imageData.ColorSpace, imageData.BitsPerPixel, true);
@@ -646,7 +645,6 @@ namespace PdfSharp.Pdf
           // Standard CMYK Colorspace
           { "/DeviceCMYK", (a) => {
             throw new NotImplementedException("CMYK encoded images are not supported.");
-            return (new PdfCMYKColorSpace());
           } },
         };
 
