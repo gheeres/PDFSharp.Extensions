@@ -161,7 +161,17 @@ namespace PdfSharp.Pdf
       Bitmap bitmap = new Bitmap(imageData.Width, imageData.Height, format);
 
       // Determine if BLACK=1, create proper indexed color palette.
-      CCITTFaxDecodeParameters ccittFaxDecodeParameters = new CCITTFaxDecodeParameters(dictionary.Elements["/DecodeParms"].Get() as PdfDictionary);
+
+      PdfDictionary decodeParams;
+      var decodeParamsObject = dictionary.Elements["/DecodeParms"].Get();
+      if (decodeParamsObject is PdfArray)
+        decodeParams = (decodeParamsObject as PdfArray).First() as PdfDictionary;
+      else if (decodeParamsObject is PdfDictionary)
+        decodeParams = decodeParamsObject as PdfDictionary;
+      else
+        throw new NotSupportedException("Unknown format of CCITTFaxDecode params.");
+
+      CCITTFaxDecodeParameters ccittFaxDecodeParameters = new CCITTFaxDecodeParameters(decodeParams);
       if (ccittFaxDecodeParameters.BlackIs1) bitmap.Palette = PdfIndexedColorSpace.CreateColorPalette(Color.Black, Color.White);
       else bitmap.Palette = PdfIndexedColorSpace.CreateColorPalette(Color.White, Color.Black);
 
