@@ -378,6 +378,7 @@ namespace PdfSharp.Pdf
         // The palette data is directly imbedded.
         if (item.IsArray()) return(GetRawPalette(item as PdfArray));
         if (item.IsReference()) return (GetRawPalette(item as PdfReference));
+        if (item is PdfString pdfString) return new RawEncoding().GetBytes(pdfString.Value);
       
         throw new ArgumentException("The specified palette information was incorrect.", "item");
       }
