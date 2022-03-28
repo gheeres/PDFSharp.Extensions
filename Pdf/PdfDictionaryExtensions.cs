@@ -175,6 +175,12 @@ namespace PdfSharp.Pdf
           for (int i = 0; i < imageData.Height; i++) {
             tiff.ReadScanline(buffer, i);
 
+            if (!ccittFaxDecodeParameters.BlackIs1) {
+              for (var j = 0; j < buffer.Length; j++) {
+                buffer[j] = (byte) (255 - buffer[j]);
+              }
+            }
+            
             Rectangle imgRect = new Rectangle(0, i, imageData.Width, 1);
             BitmapData imgData = bitmap.LockBits(imgRect, ImageLockMode.WriteOnly, PixelFormat.Format1bppIndexed);
             Marshal.Copy(buffer, 0, imgData.Scan0, buffer.Length);
