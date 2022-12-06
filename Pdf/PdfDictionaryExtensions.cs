@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using BitMiracle.LibTiff.Classic;
 using PdfSharp.Pdf.Advanced;
 using PdfSharp.Pdf.Filters;
+using PdfSharp.Pdf.Internal;
 
 // ReSharper disable once CheckNamespace
 namespace PdfSharp.Pdf
@@ -134,10 +135,6 @@ namespace PdfSharp.Pdf
         WriteTiffTag(buffer, TiffTag.IMAGELENGTH, TiffType.LONG, 1, (uint)imageData.Height);
         WriteTiffTag(buffer, TiffTag.BITSPERSAMPLE, TiffType.SHORT, 1, (uint)imageData.BitsPerPixel);
         WriteTiffTag(buffer, TiffTag.COMPRESSION, TiffType.SHORT, 1, (uint)imageData.Compression);
-<<<<<<< HEAD
-
-=======
->>>>>>> 4f23b3261f6d75b3cbd42eea79b227900bd3dcfd
         WriteTiffTag(buffer, TiffTag.PHOTOMETRIC, TiffType.SHORT, 1, 0); // WhiteIsZero
         WriteTiffTag(buffer, TiffTag.STRIPOFFSETS, TiffType.LONG, 1, header_length);
         WriteTiffTag(buffer, TiffTag.SAMPLESPERPIXEL, TiffType.SHORT, 1, 1);
@@ -402,7 +399,7 @@ namespace PdfSharp.Pdf
         // The palette data is directly imbedded.
         if (item.IsArray()) return(GetRawPalette(item as PdfArray));
         if (item.IsReference()) return (GetRawPalette(item as PdfReference));
-        if (item is PdfString pdfString) return new RawEncoding().GetBytes(pdfString.Value);
+        // TODO if (item is PdfString pdfString) return new RawEncoding().GetBytes(pdfString.Value);
       
         throw new ArgumentException("The specified palette information was incorrect.", "item");
       }
@@ -697,11 +694,7 @@ namespace PdfSharp.Pdf
       /// <summary>The colorspace information for the image.</summary>
       public PdfColorSpace ColorSpace { get; set; }
 
-<<<<<<< HEAD
       /// <summary>The Compression for the image.</summary>
-=======
-      /// <summary>The Compression for the image.</summary> 
->>>>>>> 4f23b3261f6d75b3cbd42eea79b227900bd3dcfd
       public Compression Compression { get; set; }
 
       /// <param name="dictionary">The dictionary object o parse.</param>
