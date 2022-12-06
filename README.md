@@ -10,7 +10,12 @@ Licensed under the MIT license.
 
 ---------------------------------------
 
-This fork will be of some maintenance.
+This fork includes some maintenance from: 
+
+https://github.com/ghosttie/PDFSharp.Extensions/tree/patch-1
+https://github.com/sk2andy/PDFSharp.Extensions
+https://github.com/jaykay-design/PDFSharp.Extensions
+https://github.com/vanderkorn/PDFSharp.Extensions
 
 ---------------------------------------
 
