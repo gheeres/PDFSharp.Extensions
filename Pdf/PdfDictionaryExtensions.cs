@@ -134,7 +134,10 @@ namespace PdfSharp.Pdf
         WriteTiffTag(buffer, TiffTag.IMAGELENGTH, TiffType.LONG, 1, (uint)imageData.Height);
         WriteTiffTag(buffer, TiffTag.BITSPERSAMPLE, TiffType.SHORT, 1, (uint)imageData.BitsPerPixel);
         WriteTiffTag(buffer, TiffTag.COMPRESSION, TiffType.SHORT, 1, (uint)imageData.Compression);
+<<<<<<< HEAD
 
+=======
+>>>>>>> 4f23b3261f6d75b3cbd42eea79b227900bd3dcfd
         WriteTiffTag(buffer, TiffTag.PHOTOMETRIC, TiffType.SHORT, 1, 0); // WhiteIsZero
         WriteTiffTag(buffer, TiffTag.STRIPOFFSETS, TiffType.LONG, 1, header_length);
         WriteTiffTag(buffer, TiffTag.SAMPLESPERPIXEL, TiffType.SHORT, 1, 1);
@@ -156,20 +159,34 @@ namespace PdfSharp.Pdf
     /// <returns>The image retrieve from the dictionary. If not found or an invalid image, then null is returned.</returns>
     private static Image ImageFromCCITTFaxDecode(PdfDictionary dictionary)
     {
-      Image image = null;
       PdfDictionaryImageMetaData imageData = new PdfDictionaryImageMetaData(dictionary);
 
       PixelFormat format = GetPixelFormat(imageData.ColorSpace, imageData.BitsPerPixel, true);
       Bitmap bitmap = new Bitmap(imageData.Width, imageData.Height, format);
 
       // Determine if BLACK=1, create proper indexed color palette.
-      CCITTFaxDecodeParameters ccittFaxDecodeParameters = new CCITTFaxDecodeParameters(dictionary.Elements["/DecodeParms"].Get() as PdfDictionary);
+
+      PdfDictionary decodeParams;
+      var decodeParamsObject = dictionary.Elements["/DecodeParms"].Get();
+      if (decodeParamsObject is PdfArray)
+        decodeParams = (decodeParamsObject as PdfArray).First() as PdfDictionary;
+      else if (decodeParamsObject is PdfDictionary)
+        decodeParams = decodeParamsObject as PdfDictionary;
+      else
+        throw new NotSupportedException("Unknown format of CCITTFaxDecode params.");
+
+      CCITTFaxDecodeParameters ccittFaxDecodeParameters = new CCITTFaxDecodeParameters(decodeParams);
       if (ccittFaxDecodeParameters.BlackIs1) bitmap.Palette = PdfIndexedColorSpace.CreateColorPalette(Color.Black, Color.White);
       else bitmap.Palette = PdfIndexedColorSpace.CreateColorPalette(Color.White, Color.Black);
       if (ccittFaxDecodeParameters.K == 0 || ccittFaxDecodeParameters.K > 0)
           imageData.Compression = Compression.CCITTFAX3;
       else if (ccittFaxDecodeParameters.K < 0)
           imageData.Compression = Compression.CCITTFAX4;
+
+      if (ccittFaxDecodeParameters.K == 0 || ccittFaxDecodeParameters.K > 0)
+        imageData.Compression = Compression.CCITTFAX3;
+      else if (ccittFaxDecodeParameters.K < 0)
+        imageData.Compression = Compression.CCITTFAX4;
 
       using (MemoryStream stream = new MemoryStream(GetTiffImageBufferFromCCITTFaxDecode(imageData, dictionary.Stream.Value))) {
         using (Tiff tiff = Tiff.ClientOpen("<INLINE>", "r", stream, new TiffStream())) {
@@ -389,6 +406,7 @@ namespace PdfSharp.Pdf
         // The palette data is directly imbedded.
         if (item.IsArray()) return(GetRawPalette(item as PdfArray));
         if (item.IsReference()) return (GetRawPalette(item as PdfReference));
+        if (item is PdfString pdfString) return new RawEncoding().GetBytes(pdfString.Value);
       
         throw new ArgumentException("The specified palette information was incorrect.", "item");
       }
@@ -652,7 +670,6 @@ namespace PdfSharp.Pdf
           // Standard CMYK Colorspace
           { "/DeviceCMYK", (a) => {
             throw new NotImplementedException("CMYK encoded images are not supported.");
-            return (new PdfCMYKColorSpace());
           } },
         };
 
@@ -684,7 +701,11 @@ namespace PdfSharp.Pdf
       /// <summary>The colorspace information for the image.</summary>
       public PdfColorSpace ColorSpace { get; set; }
 
+<<<<<<< HEAD
       /// <summary>The Compression for the image.</summary>
+=======
+      /// <summary>The Compression for the image.</summary> 
+>>>>>>> 4f23b3261f6d75b3cbd42eea79b227900bd3dcfd
       public Compression Compression { get; set; }
 
       /// <param name="dictionary">The dictionary object o parse.</param>

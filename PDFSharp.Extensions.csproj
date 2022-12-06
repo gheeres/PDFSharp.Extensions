@@ -33,8 +33,8 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="BitMiracle.LibTiff.NET, Version=2.3.642.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\BitMiracle.LibTiff.NET.2.3.642.0\lib\net20\BitMiracle.LibTiff.NET.dll</HintPath>
+    <Reference Include="BitMiracle.LibTiff.NET40, Version=2.4.584.0, Culture=neutral, PublicKeyToken=53879b3e20e7a7d6, processorArchitecture=MSIL">
+      <HintPath>packages\BitMiracle.LibTiff.NET.2.4.584.1\lib\net40\BitMiracle.LibTiff.NET40.dll</HintPath>
     </Reference>
     <Reference Include="PdfSharp, Version=1.32.3057.0, Culture=neutral, PublicKeyToken=f94615aa0424f9eb, processorArchitecture=MSIL">
       <HintPath>packages\PDFsharp.1.32.3057.0\lib\net20\PdfSharp.dll</HintPath>
