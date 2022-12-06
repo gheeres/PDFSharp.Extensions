@@ -10,6 +10,10 @@ Licensed under the MIT license.
 
 ---------------------------------------
 
+This fork will be of some maintenance.
+
+---------------------------------------
+
 Image Utilities
 -----------
 Extension methods are provided for extracting images from an entire document, 
