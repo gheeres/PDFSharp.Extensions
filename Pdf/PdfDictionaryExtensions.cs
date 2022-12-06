@@ -178,11 +178,7 @@ namespace PdfSharp.Pdf
       CCITTFaxDecodeParameters ccittFaxDecodeParameters = new CCITTFaxDecodeParameters(decodeParams);
       if (ccittFaxDecodeParameters.BlackIs1) bitmap.Palette = PdfIndexedColorSpace.CreateColorPalette(Color.Black, Color.White);
       else bitmap.Palette = PdfIndexedColorSpace.CreateColorPalette(Color.White, Color.Black);
-      if (ccittFaxDecodeParameters.K == 0 || ccittFaxDecodeParameters.K > 0)
-          imageData.Compression = Compression.CCITTFAX3;
-      else if (ccittFaxDecodeParameters.K < 0)
-          imageData.Compression = Compression.CCITTFAX4;
-
+      
       if (ccittFaxDecodeParameters.K == 0 || ccittFaxDecodeParameters.K > 0)
         imageData.Compression = Compression.CCITTFAX3;
       else if (ccittFaxDecodeParameters.K < 0)
