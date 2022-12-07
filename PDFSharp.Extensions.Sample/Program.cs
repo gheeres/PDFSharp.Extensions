@@ -11,12 +11,21 @@ namespace PDFSharp.Extensions.Sample
     {
         private static void Main(string[] args)
         {
-            ExtractImages(args);
+            var root = args.FirstOrDefault() ?? Path.Combine("res");
+            var files = Directory.GetFiles(root, "*.pdf", SearchOption.AllDirectories);
+            foreach (var file in files)
+                try
+                {
+                    ExtractImages(file);
+                }
+                catch (Exception e)
+                {
+                    Console.Error.WriteLine($"{file} -> {e.Message}");
+                }
         }
 
-        private static void ExtractImages(string[] args)
+        private static void ExtractImages(string filename)
         {
-            var filename = args.FirstOrDefault() ?? Path.Combine("res", "Sample.pdf");
             Console.WriteLine("Processing file: {0}", filename);
 
             using (var document = PdfReader.Open(filename, PdfDocumentOpenMode.Import))
