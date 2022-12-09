@@ -15,4 +15,10 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="res\**\*.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

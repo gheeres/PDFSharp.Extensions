@@ -28,7 +28,7 @@ namespace PdfSharp.Pdf
     /// </summary>
     /// <param name="dictionary">The dictionary to dump.</param>
     /// <param name="output">The optional output method. If not provided, then the output will be directed to standard output.</param>
-    private static void Dump(this PdfDictionary dictionary, Action<PdfName, PdfItem> output = null)
+    public static void Dump(this PdfDictionary dictionary, Action<PdfName, PdfItem> output = null)
     {
       if (dictionary == null) return;
       // If not output method was specified, write to the console.
