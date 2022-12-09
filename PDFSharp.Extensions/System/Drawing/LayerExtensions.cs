@@ -59,5 +59,19 @@ namespace PdfSharp.Pdf.Drawing
         {
             return new Rgba32(Tiff.GetR(bits), Tiff.GetG(bits), Tiff.GetB(bits), Tiff.GetA(bits));
         }
+
+        public static byte[] FixB4ToI8(this byte[] input)
+        {
+            const int step = 2;
+            var copy = new byte[input.Length * step];
+            for (var i = 0; i < input.Length; i++)
+            {
+                var raw = input[i];
+                var p = i * step;
+                copy[p + 0] = (byte)(raw >> 4);
+                copy[p + 1] = (byte)(raw & 0x0F);
+            }
+            return copy;
+        }
     }
 }
