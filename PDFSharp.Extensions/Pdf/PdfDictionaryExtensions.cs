@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -158,7 +159,6 @@ namespace PdfSharp.Pdf
       PdfDictionaryImageMetaData imageData = new PdfDictionaryImageMetaData(dictionary);
 
       PixelFormat format = GetPixelFormat(imageData.ColorSpace, imageData.BitsPerPixel, true);
-      Bitmap bitmap = new Bitmap(imageData.Width, imageData.Height, format);
 
       // Determine if BLACK=1, create proper indexed color palette.
 
@@ -172,8 +172,6 @@ namespace PdfSharp.Pdf
         throw new NotSupportedException("Unknown format of CCITTFaxDecode params.");
 
       CCITTFaxDecodeParameters ccittFaxDecodeParameters = new CCITTFaxDecodeParameters(decodeParams);
-      if (ccittFaxDecodeParameters.BlackIs1) bitmap.Palette = PdfIndexedColorSpace.CreateColorPalette(Color.Black, Color.White);
-      else bitmap.Palette = PdfIndexedColorSpace.CreateColorPalette(Color.White, Color.Black);
       
       if (ccittFaxDecodeParameters.K == 0 || ccittFaxDecodeParameters.K > 0)
         imageData.Compression = Compression.CCITTFAX3;
@@ -184,25 +182,21 @@ namespace PdfSharp.Pdf
         using (Tiff tiff = Tiff.ClientOpen("<INLINE>", "r", stream, new TiffStream())) {
           if (tiff == null) return (null);
 
-          int stride = tiff.ScanlineSize();
-          byte[] buffer = new byte[stride];
-          for (int i = 0; i < imageData.Height; i++) {
-            tiff.ReadScanline(buffer, i);
+          var raster = new int[imageData.Width * imageData.Height];
+          if (!tiff.ReadRGBAImageOriented(imageData.Width, imageData.Height, raster, Orientation.TOPLEFT))
+              throw new InvalidOperationException("Cannot read image into raster!");
 
-            if (!ccittFaxDecodeParameters.BlackIs1) {
-              for (var j = 0; j < buffer.Length; j++) {
-                buffer[j] = (byte) (255 - buffer[j]);
-              }
-            }
-            
-            Rectangle imgRect = new Rectangle(0, i, imageData.Width, 1);
-            BitmapData imgData = bitmap.LockBits(imgRect, ImageLockMode.WriteOnly, PixelFormat.Format1bppIndexed);
-            Marshal.Copy(buffer, 0, imgData.Scan0, buffer.Length);
-            bitmap.UnlockBits(imgData);
+          var pixels = raster.Select(i => i.FromPacked()).ToArray();
+          var bitmap = Image.LoadPixelData(pixels, imageData.Width, imageData.Height);
+          
+          if (!ccittFaxDecodeParameters.BlackIs1)
+          {
+              bitmap.Mutate(c => c.Invert());
           }
+
+          return (bitmap);
         }
       }
-      return (bitmap);
     }
 
     /// <summary>
