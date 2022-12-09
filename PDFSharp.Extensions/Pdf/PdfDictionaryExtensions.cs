@@ -218,14 +218,14 @@ namespace PdfSharp.Pdf
       bool isIndexed = imageData.ColorSpace.IsIndexed;
       PixelFormat format = GetPixelFormat(imageData.ColorSpace, imageData.BitsPerPixel, isIndexed);
 
-      Bitmap bitmap = new Bitmap(imageData.Width, imageData.Height, format);
+      ColorPalette palette = default;
 
       // If indexed, retrieve and assign the color palette for the item.
-      if ((isIndexed) && (imageData.ColorSpace.IsRGB)) bitmap.Palette = ((PdfIndexedRGBColorSpace) imageData.ColorSpace).ToColorPalette();
-      else if (imageData.ColorSpace is PdfGrayColorSpace) bitmap.Palette = ((PdfGrayColorSpace)imageData.ColorSpace).ToColorPalette(imageData.BitsPerPixel);
+      if ((isIndexed) && (imageData.ColorSpace.IsRGB)) palette = ((PdfIndexedRGBColorSpace) imageData.ColorSpace).ToColorPalette();
+      else if (imageData.ColorSpace is PdfGrayColorSpace) palette = ((PdfGrayColorSpace)imageData.ColorSpace).ToColorPalette(imageData.BitsPerPixel);
 
-      // If not an indexed color, the .NET image component expects pixels to be in BGR order. However, our PDF stream is in RGB order.
-      byte[] stream = (format == PixelFormat.Format24bppRgb) ? ConvertRGBStreamToBGR(dictionary.Stream.UnfilteredValue) : dictionary.Stream.UnfilteredValue;
+      // Our PDF stream is in RGB order.
+      byte[] stream = dictionary.Stream.UnfilteredValue;
 
       BitmapData bitmapData = bitmap.LockBits(new Rectangle(0, 0, imageData.Width, imageData.Height), ImageLockMode.WriteOnly, format);
       // We can't just copy the bytes directly; the BitmapData .NET class has a stride (padding) associated with it. 
