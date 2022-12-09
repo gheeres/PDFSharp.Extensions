@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using BitMiracle.LibTiff.Classic;
 using MigraDocCore.DocumentObjectModel.MigraDoc.DocumentObjectModel.Shapes;
 using PdfSharpCore.Utils;
 using SixLabors.ImageSharp;
@@ -52,6 +53,11 @@ namespace PdfSharp.Pdf.Drawing
                 }
             });
             return target;
+        }
+
+        public static Rgba32 FromPacked(this int bits)
+        {
+            return new Rgba32(Tiff.GetR(bits), Tiff.GetG(bits), Tiff.GetB(bits), Tiff.GetA(bits));
         }
     }
 }
