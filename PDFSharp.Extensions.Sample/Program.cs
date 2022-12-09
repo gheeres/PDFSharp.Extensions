@@ -12,11 +12,12 @@ namespace PDFSharp.Extensions.Sample
         private static void Main(string[] args)
         {
             var root = args.FirstOrDefault() ?? Path.Combine("res");
+            var output = Directory.CreateDirectory("out").Name;
             var files = Directory.GetFiles(root, "*.pdf", SearchOption.AllDirectories);
             foreach (var file in files)
                 try
                 {
-                    ExtractImages(file);
+                    ExtractImages(output, file);
                 }
                 catch (Exception e)
                 {
@@ -24,7 +25,7 @@ namespace PDFSharp.Extensions.Sample
                 }
         }
 
-        private static void ExtractImages(string filename)
+        private static void ExtractImages(string output, string filename)
         {
             Console.WriteLine("Processing file: {0}", filename);
 
@@ -42,6 +43,7 @@ namespace PDFSharp.Extensions.Sample
 
                         var pre = Path.GetFileNameWithoutExtension(filename);
                         var path = string.Format(@"{2} {0:00000000}-{1:000}.png", currPage, currImg, pre);
+                        path = Path.Combine(output, path);
                         image.Save(path, ImageFormat.Png);
                         imageIndex++;
                     }

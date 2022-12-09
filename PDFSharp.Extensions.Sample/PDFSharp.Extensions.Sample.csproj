@@ -10,8 +10,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="res\*.pdf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    <None Update="res\**\*.pdf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 
