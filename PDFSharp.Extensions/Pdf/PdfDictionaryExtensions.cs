@@ -9,6 +9,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using BitMiracle.LibTiff.Classic;
+using PDFSharp.Extensions.Pdf;
 using PdfSharp.Pdf.Drawing;
 using PdfSharpCore.Pdf.Advanced;
 using PdfSharpCore.Pdf.Filters;
@@ -228,7 +229,8 @@ namespace PdfSharp.Pdf
       byte[] stream = dictionary.Stream.UnfilteredValue;
 
       if (LayerExtensions.HasError(stream, out var decodeErr))
-          throw new InvalidOperationException(decodeErr);
+          if ((stream = dictionary.Stream.RepeatUnFilter()) == null)
+              throw new InvalidOperationException(decodeErr);
 
       if (imageData.ColorSpace.IsRGB)
       {
