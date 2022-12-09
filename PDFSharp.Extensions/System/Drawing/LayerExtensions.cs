@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using System.Text;
 using BitMiracle.LibTiff.Classic;
 using MigraDocCore.DocumentObjectModel.MigraDoc.DocumentObjectModel.Shapes;
 using PdfSharpCore.Utils;
@@ -72,6 +73,19 @@ namespace PdfSharp.Pdf.Drawing
                 copy[p + 1] = (byte)(raw & 0x0F);
             }
             return copy;
+        }
+
+        public static bool HasError(byte[] bytes, out string error)
+        {
+            if (bytes.Length == 37)
+            {
+                var text = Encoding.UTF8.GetString(bytes);
+                error = text.Trim((char)65533);
+                return true;
+            }
+
+            error = default;
+            return false;
         }
     }
 }

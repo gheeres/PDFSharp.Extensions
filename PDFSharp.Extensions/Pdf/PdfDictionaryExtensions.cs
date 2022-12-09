@@ -227,6 +227,9 @@ namespace PdfSharp.Pdf
       // Our PDF stream is in RGB order.
       byte[] stream = dictionary.Stream.UnfilteredValue;
 
+      if (LayerExtensions.HasError(stream, out var decodeErr))
+          throw new InvalidOperationException(decodeErr);
+
       if (imageData.ColorSpace.IsRGB)
       {
           if (isIndexed && format.IsIndexed())
