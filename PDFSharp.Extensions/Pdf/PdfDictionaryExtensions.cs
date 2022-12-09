@@ -227,38 +227,24 @@ namespace PdfSharp.Pdf
       // Our PDF stream is in RGB order.
       byte[] stream = dictionary.Stream.UnfilteredValue;
 
-      BitmapData bitmapData = bitmap.LockBits(new Rectangle(0, 0, imageData.Width, imageData.Height), ImageLockMode.WriteOnly, format);
-      // We can't just copy the bytes directly; the BitmapData .NET class has a stride (padding) associated with it. 
-      int bitsPerPixel = ((((int)format >> 8) & 0xFF));
-      int length = (int)Math.Ceiling(bitmapData.Width * bitsPerPixel / 8.0);
-      for (int y = 0, height = bitmapData.Height; y < height; y++) {
-        int offset = y * length;
-        Marshal.Copy(stream, offset, bitmapData.Scan0 + (y * bitmapData.Stride), length);
+      if (imageData.ColorSpace.IsRGB)
+      {
+          if (isIndexed && format.IsIndexed())
+          {
+              var copy = stream;
+              if (format == PixelFormat.Format4bppIndexed)
+                  copy = stream.FixB4ToI8();
+
+              using var img = Image.LoadPixelData<L8>(copy, imageData.Width, imageData.Height);
+              return img.ApplyColorPalette(palette);
+          }
+          if (format == PixelFormat.Format24bppRgb)
+          {
+              return Image.LoadPixelData<Rgb24>(stream, imageData.Width, imageData.Height);
+          }
       }
-      bitmap.UnlockBits(bitmapData);
 
-      return (bitmap);
-    }
-
-    /// <summary>
-    /// Converts an RGB ordered stream to BGR ordering. 
-    /// </summary>
-    /// <remarks>
-    /// A PDF /DeviceRGB stream is stored in RGB ordering, however the .NET Image libraries expect BGR ordering.
-    /// </remarks>
-    /// <param name="stream">The input stream to reorder. The input array will be modified inline by this procedure.</param>
-    /// <returns>Return the modified input stream.</returns>
-    private static byte[] ConvertRGBStreamToBGR(byte[] stream)
-    {
-      if (stream == null) return(null);
-
-      for (int x = 0, length = stream.Length; x < length; x += 3) {
-        byte red = stream[x];
-
-        stream[x] = stream[x+2];
-        stream[x+2] = red;
-      }
-      return (stream);
+      throw new InvalidOperationException($"{imageData.ColorSpace} {format}");
     }
 
     private static PdfDictionary ProcessFilters(PdfDictionary dictionary)
