@@ -25,7 +25,7 @@ individual pages or specific images. Currently only RGB encoded images (/DeviceR
 are supported with either /DCTDecode or /FlatEncode encoding. /Indexed colorspaces 
 are also supported for /FlatEncode images including 1bpp images (black & white).
 
-All images are extracted as System.Drawing.Image obects which can then be saved or 
+All images are extracted as SixLabors.ImageSharp.Image objects which can then be saved or 
 manipulated as necessary.
 
 __Example__
