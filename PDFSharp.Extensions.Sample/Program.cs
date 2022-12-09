@@ -1,9 +1,10 @@
 ﻿using System;
-using System.Drawing.Imaging;
+using SixLabors.ImageSharp;
 using System.IO;
 using System.Linq;
 using PdfSharp.Pdf;
-using PdfSharp.Pdf.IO;
+using PdfSharpCore.Pdf;
+using PdfSharpCore.Pdf.IO;
 
 namespace PDFSharp.Extensions.Sample
 {
@@ -44,7 +45,7 @@ namespace PDFSharp.Extensions.Sample
                         var pre = Path.GetFileNameWithoutExtension(filename);
                         var path = string.Format(@"{2} {0:00000000}-{1:000}.png", currPage, currImg, pre);
                         path = Path.Combine(output, path);
-                        image.Save(path, ImageFormat.Png);
+                        image.SaveAsPng(path);
                         imageIndex++;
                     }
                     pageIndex++;

@@ -1,4 +1,5 @@
-﻿using PdfSharp.Pdf.Advanced;
+﻿using PdfSharpCore.Pdf;
+using PdfSharpCore.Pdf.Advanced;
 
 // ReSharper disable once CheckNamespace
 namespace PdfSharp.Pdf

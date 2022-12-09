@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Drawing;
-using System.Drawing.Imaging;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -10,9 +9,10 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using BitMiracle.LibTiff.Classic;
-using PdfSharp.Pdf.Advanced;
-using PdfSharp.Pdf.Filters;
-using PdfSharp.Pdf.Internal;
+using PdfSharp.Pdf.Drawing;
+using PdfSharpCore.Pdf.Advanced;
+using PdfSharpCore.Pdf.Filters;
+using PdfSharpCore.Pdf;
 
 // ReSharper disable once CheckNamespace
 namespace PdfSharp.Pdf
@@ -276,7 +276,7 @@ namespace PdfSharp.Pdf
       var map = new Dictionary<string, Func<byte[], byte[]>>() {
         { "/FlateDecode", (d) => {
           var decoder = new FlateDecode();
-          return (decoder.Decode(d));
+          return (decoder.Decode(d, dictionary));
         } }
       };
 
@@ -529,7 +529,7 @@ namespace PdfSharp.Pdf
         int offset = 3;
         byte[] values = GetRawPalette(_colorSpace).ToArray();
         for (int color = 0, length = Colors; color < length; color++) {
-          yield return (Color.FromArgb(values[color * offset], values[(color * offset) + 1], values[(color * offset) + 2]));
+          yield return (Color.FromRgb(values[color * offset], values[(color * offset) + 1], values[(color * offset) + 2]));
         }
       }
 
@@ -580,8 +580,8 @@ namespace PdfSharp.Pdf
         ColorPalette palette = PdfIndexedRGBColorSpace.CreateColorPalette(colors);
 
         Parallel.For(0, colors, (color) => {
-          int gray = (int) Math.Floor((256f - 1)/ (colors - 1) * color);
-          palette.Entries[color] = Color.FromArgb(gray, gray, gray);
+          byte gray = (byte) Math.Floor((256f - 1)/ (colors - 1) * color);
+          palette.Entries[color] = Color.FromRgb(gray, gray, gray);
         });
         return (palette);
       }
@@ -735,7 +735,7 @@ namespace PdfSharp.Pdf
       /// <filterpriority>2</filterpriority>
       public override string ToString()
       {
-        Func<IEnumerable<string>> palette = () => ((PdfIndexedRGBColorSpace)ColorSpace).Palette.Select((c,i) => String.Format("[{0:000}]{1:x2}{2:x2}{3:x2}{4:x2}", i, c.A, c.R, c.G, c.B));
+        Func<IEnumerable<string>> palette = () => ((PdfIndexedRGBColorSpace)ColorSpace).Palette.Unpack().Select((c,i) => String.Format("[{0:000}]{1:x2}{2:x2}{3:x2}{4:x2}", i, c.A, c.R, c.G, c.B));
         return (String.Format("{0}x{1} @ {2}bpp{3}", Width, Height, BitsPerPixel, 
                                (ColorSpace is PdfIndexedRGBColorSpace) ? String.Format(" /Indexed({0}): {1}", ((PdfIndexedColorSpace) ColorSpace).Colors,
                                                                                                               String.Join(", ", palette.Invoke())) : null));
