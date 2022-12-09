@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -60,7 +59,7 @@ namespace PdfSharp.Pdf
       // DCTDecode a lossy filter based on the JPEG standard
       // We can just load directly from the stream.
       MemoryStream stream = new MemoryStream(dictionary.Stream.Value);
-      return (Bitmap.FromStream(stream));
+      return (Image.Load(stream));
     }
 
     /// <summary>
