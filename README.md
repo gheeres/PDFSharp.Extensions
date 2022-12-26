@@ -10,6 +10,14 @@ Licensed under the MIT license.
 
 ---------------------------------------
 
+Install and use it with 
+
+```
+dotnet add package PdfSharpCore.Extensions 
+```
+
+---------------------------------------
+
 This fork includes some maintenance from: 
 * https://github.com/ghosttie/PDFSharp.Extensions/tree/patch-1
 * https://github.com/sk2andy/PDFSharp.Extensions
