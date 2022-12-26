@@ -10,6 +10,22 @@ Licensed under the MIT license.
 
 ---------------------------------------
 
+Install and use it with 
+
+```
+dotnet add package PdfSharpCore.Extensions 
+```
+
+---------------------------------------
+
+This fork includes some maintenance from: 
+* https://github.com/ghosttie/PDFSharp.Extensions/tree/patch-1
+* https://github.com/sk2andy/PDFSharp.Extensions
+* https://github.com/jaykay-design/PDFSharp.Extensions
+* https://github.com/vanderkorn/PDFSharp.Extensions
+
+---------------------------------------
+
 Image Utilities
 -----------
 Extension methods are provided for extracting images from an entire document, 
@@ -17,7 +33,7 @@ individual pages or specific images. Currently only RGB encoded images (/DeviceR
 are supported with either /DCTDecode or /FlatEncode encoding. /Indexed colorspaces 
 are also supported for /FlatEncode images including 1bpp images (black & white).
 
-All images are extracted as System.Drawing.Image obects which can then be saved or 
+All images are extracted as SixLabors.ImageSharp.Image objects which can then be saved or 
 manipulated as necessary.
 
 __Example__

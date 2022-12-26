@@ -1,17 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Drawing;
-using System.Drawing.Imaging;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using BitMiracle.LibTiff.Classic;
-using PdfSharp.Pdf.Advanced;
-using PdfSharp.Pdf.Filters;
+using PDFSharp.Extensions.Pdf;
+using PdfSharp.Pdf.Drawing;
+using PdfSharpCore.Pdf.Advanced;
+using PdfSharpCore.Pdf.Filters;
+using PdfSharpCore.Pdf;
 
 // ReSharper disable once CheckNamespace
 namespace PdfSharp.Pdf
@@ -26,7 +28,7 @@ namespace PdfSharp.Pdf
     /// </summary>
     /// <param name="dictionary">The dictionary to dump.</param>
     /// <param name="output">The optional output method. If not provided, then the output will be directed to standard output.</param>
-    private static void Dump(this PdfDictionary dictionary, Action<PdfName, PdfItem> output = null)
+    public static void Dump(this PdfDictionary dictionary, Action<PdfName, PdfItem> output = null)
     {
       if (dictionary == null) return;
       // If not output method was specified, write to the console.
@@ -59,7 +61,7 @@ namespace PdfSharp.Pdf
       // DCTDecode a lossy filter based on the JPEG standard
       // We can just load directly from the stream.
       MemoryStream stream = new MemoryStream(dictionary.Stream.Value);
-      return (Bitmap.FromStream(stream));
+      return (Image.Load(stream));
     }
 
     /// <summary>
@@ -133,7 +135,7 @@ namespace PdfSharp.Pdf
         WriteTiffTag(buffer, TiffTag.IMAGEWIDTH, TiffType.LONG, 1, (uint)imageData.Width);
         WriteTiffTag(buffer, TiffTag.IMAGELENGTH, TiffType.LONG, 1, (uint)imageData.Height);
         WriteTiffTag(buffer, TiffTag.BITSPERSAMPLE, TiffType.SHORT, 1, (uint)imageData.BitsPerPixel);
-        WriteTiffTag(buffer, TiffTag.COMPRESSION, TiffType.SHORT, 1, (uint) Compression.CCITTFAX4); // CCITT Group 4 fax encoding.
+        WriteTiffTag(buffer, TiffTag.COMPRESSION, TiffType.SHORT, 1, (uint)imageData.Compression);
         WriteTiffTag(buffer, TiffTag.PHOTOMETRIC, TiffType.SHORT, 1, 0); // WhiteIsZero
         WriteTiffTag(buffer, TiffTag.STRIPOFFSETS, TiffType.LONG, 1, header_length);
         WriteTiffTag(buffer, TiffTag.SAMPLESPERPIXEL, TiffType.SHORT, 1, 1);
@@ -155,34 +157,47 @@ namespace PdfSharp.Pdf
     /// <returns>The image retrieve from the dictionary. If not found or an invalid image, then null is returned.</returns>
     private static Image ImageFromCCITTFaxDecode(PdfDictionary dictionary)
     {
-      Image image = null;
       PdfDictionaryImageMetaData imageData = new PdfDictionaryImageMetaData(dictionary);
 
       PixelFormat format = GetPixelFormat(imageData.ColorSpace, imageData.BitsPerPixel, true);
-      Bitmap bitmap = new Bitmap(imageData.Width, imageData.Height, format);
 
       // Determine if BLACK=1, create proper indexed color palette.
-      CCITTFaxDecodeParameters ccittFaxDecodeParameters = new CCITTFaxDecodeParameters(dictionary.Elements["/DecodeParms"].Get() as PdfDictionary);
-      if (ccittFaxDecodeParameters.BlackIs1) bitmap.Palette = PdfIndexedColorSpace.CreateColorPalette(Color.Black, Color.White);
-      else bitmap.Palette = PdfIndexedColorSpace.CreateColorPalette(Color.White, Color.Black);
+
+      PdfDictionary decodeParams;
+      var decodeParamsObject = dictionary.Elements["/DecodeParms"].Get();
+      if (decodeParamsObject is PdfArray)
+        decodeParams = (decodeParamsObject as PdfArray).First() as PdfDictionary;
+      else if (decodeParamsObject is PdfDictionary)
+        decodeParams = decodeParamsObject as PdfDictionary;
+      else
+        throw new NotSupportedException("Unknown format of CCITTFaxDecode params.");
+
+      CCITTFaxDecodeParameters ccittFaxDecodeParameters = new CCITTFaxDecodeParameters(decodeParams);
+      
+      if (ccittFaxDecodeParameters.K == 0 || ccittFaxDecodeParameters.K > 0)
+        imageData.Compression = Compression.CCITTFAX3;
+      else if (ccittFaxDecodeParameters.K < 0)
+        imageData.Compression = Compression.CCITTFAX4;
 
       using (MemoryStream stream = new MemoryStream(GetTiffImageBufferFromCCITTFaxDecode(imageData, dictionary.Stream.Value))) {
         using (Tiff tiff = Tiff.ClientOpen("<INLINE>", "r", stream, new TiffStream())) {
           if (tiff == null) return (null);
 
-          int stride = tiff.ScanlineSize();
-          byte[] buffer = new byte[stride];
-          for (int i = 0; i < imageData.Height; i++) {
-            tiff.ReadScanline(buffer, i);
+          var raster = new int[imageData.Width * imageData.Height];
+          if (!tiff.ReadRGBAImageOriented(imageData.Width, imageData.Height, raster, Orientation.TOPLEFT))
+              throw new InvalidOperationException("Cannot read image into raster!");
 
-            Rectangle imgRect = new Rectangle(0, i, imageData.Width, 1);
-            BitmapData imgData = bitmap.LockBits(imgRect, ImageLockMode.WriteOnly, PixelFormat.Format1bppIndexed);
-            Marshal.Copy(buffer, 0, imgData.Scan0, buffer.Length);
-            bitmap.UnlockBits(imgData);
+          var pixels = raster.Select(i => i.FromPacked()).ToArray();
+          var bitmap = Image.LoadPixelData(pixels, imageData.Width, imageData.Height);
+          
+          if (!ccittFaxDecodeParameters.BlackIs1)
+          {
+              bitmap.Mutate(c => c.Invert());
           }
+
+          return (bitmap);
         }
       }
-      return (bitmap);
     }
 
     /// <summary>
@@ -204,47 +219,37 @@ namespace PdfSharp.Pdf
       bool isIndexed = imageData.ColorSpace.IsIndexed;
       PixelFormat format = GetPixelFormat(imageData.ColorSpace, imageData.BitsPerPixel, isIndexed);
 
-      Bitmap bitmap = new Bitmap(imageData.Width, imageData.Height, format);
+      ColorPalette palette = default;
 
       // If indexed, retrieve and assign the color palette for the item.
-      if ((isIndexed) && (imageData.ColorSpace.IsRGB)) bitmap.Palette = ((PdfIndexedRGBColorSpace) imageData.ColorSpace).ToColorPalette();
-      else if (imageData.ColorSpace is PdfGrayColorSpace) bitmap.Palette = ((PdfGrayColorSpace)imageData.ColorSpace).ToColorPalette(imageData.BitsPerPixel);
+      if ((isIndexed) && (imageData.ColorSpace.IsRGB)) palette = ((PdfIndexedRGBColorSpace) imageData.ColorSpace).ToColorPalette();
+      else if (imageData.ColorSpace is PdfGrayColorSpace) palette = ((PdfGrayColorSpace)imageData.ColorSpace).ToColorPalette(imageData.BitsPerPixel);
 
-      // If not an indexed color, the .NET image component expects pixels to be in BGR order. However, our PDF stream is in RGB order.
-      byte[] stream = (format == PixelFormat.Format24bppRgb) ? ConvertRGBStreamToBGR(dictionary.Stream.UnfilteredValue) : dictionary.Stream.UnfilteredValue;
+      // Our PDF stream is in RGB order.
+      byte[] stream = dictionary.Stream.UnfilteredValue;
 
-      BitmapData bitmapData = bitmap.LockBits(new Rectangle(0, 0, imageData.Width, imageData.Height), ImageLockMode.WriteOnly, format);
-      // We can't just copy the bytes directly; the BitmapData .NET class has a stride (padding) associated with it. 
-      int bitsPerPixel = ((((int)format >> 8) & 0xFF));
-      int length = (int)Math.Ceiling(bitmapData.Width * bitsPerPixel / 8.0);
-      for (int y = 0, height = bitmapData.Height; y < height; y++) {
-        int offset = y * length;
-        Marshal.Copy(stream, offset, bitmapData.Scan0 + (y * bitmapData.Stride), length);
+      if (LayerExtensions.HasError(stream, out var decodeErr))
+          if ((stream = dictionary.Stream.RepeatUnFilter()) == null)
+              throw new InvalidOperationException(decodeErr);
+
+      if (imageData.ColorSpace.IsRGB)
+      {
+          if (isIndexed && format.IsIndexed())
+          {
+              var copy = stream;
+              if (format == PixelFormat.Format4bppIndexed)
+                  copy = stream.FixB4ToI8();
+
+              using var img = Image.LoadPixelData<L8>(copy, imageData.Width, imageData.Height);
+              return img.ApplyColorPalette(palette);
+          }
+          if (format == PixelFormat.Format24bppRgb)
+          {
+              return Image.LoadPixelData<Rgb24>(stream, imageData.Width, imageData.Height);
+          }
       }
-      bitmap.UnlockBits(bitmapData);
 
-      return (bitmap);
-    }
-
-    /// <summary>
-    /// Converts an RGB ordered stream to BGR ordering. 
-    /// </summary>
-    /// <remarks>
-    /// A PDF /DeviceRGB stream is stored in RGB ordering, however the .NET Image libraries expect BGR ordering.
-    /// </remarks>
-    /// <param name="stream">The input stream to reorder. The input array will be modified inline by this procedure.</param>
-    /// <returns>Return the modified input stream.</returns>
-    private static byte[] ConvertRGBStreamToBGR(byte[] stream)
-    {
-      if (stream == null) return(null);
-
-      for (int x = 0, length = stream.Length; x < length; x += 3) {
-        byte red = stream[x];
-
-        stream[x] = stream[x+2];
-        stream[x+2] = red;
-      }
-      return (stream);
+      throw new InvalidOperationException($"{imageData.ColorSpace} {format}");
     }
 
     private static PdfDictionary ProcessFilters(PdfDictionary dictionary)
@@ -255,7 +260,7 @@ namespace PdfSharp.Pdf
       var map = new Dictionary<string, Func<byte[], byte[]>>() {
         { "/FlateDecode", (d) => {
           var decoder = new FlateDecode();
-          return (decoder.Decode(d));
+          return (decoder.Decode(d, dictionary));
         } }
       };
 
@@ -378,6 +383,7 @@ namespace PdfSharp.Pdf
         // The palette data is directly imbedded.
         if (item.IsArray()) return(GetRawPalette(item as PdfArray));
         if (item.IsReference()) return (GetRawPalette(item as PdfReference));
+        // TODO if (item is PdfString pdfString) return new RawEncoding().GetBytes(pdfString.Value);
       
         throw new ArgumentException("The specified palette information was incorrect.", "item");
       }
@@ -507,7 +513,7 @@ namespace PdfSharp.Pdf
         int offset = 3;
         byte[] values = GetRawPalette(_colorSpace).ToArray();
         for (int color = 0, length = Colors; color < length; color++) {
-          yield return (Color.FromArgb(values[color * offset], values[(color * offset) + 1], values[(color * offset) + 2]));
+          yield return (Color.FromRgb(values[color * offset], values[(color * offset) + 1], values[(color * offset) + 2]));
         }
       }
 
@@ -558,8 +564,8 @@ namespace PdfSharp.Pdf
         ColorPalette palette = PdfIndexedRGBColorSpace.CreateColorPalette(colors);
 
         Parallel.For(0, colors, (color) => {
-          int gray = (int) Math.Floor((256f - 1)/ (colors - 1) * color);
-          palette.Entries[color] = Color.FromArgb(gray, gray, gray);
+          byte gray = (byte) Math.Floor((256f - 1)/ (colors - 1) * color);
+          palette.Entries[color] = Color.FromRgb(gray, gray, gray);
         });
         return (palette);
       }
@@ -641,7 +647,6 @@ namespace PdfSharp.Pdf
           // Standard CMYK Colorspace
           { "/DeviceCMYK", (a) => {
             throw new NotImplementedException("CMYK encoded images are not supported.");
-            return (new PdfCMYKColorSpace());
           } },
         };
 
@@ -673,6 +678,9 @@ namespace PdfSharp.Pdf
       /// <summary>The colorspace information for the image.</summary>
       public PdfColorSpace ColorSpace { get; set; }
 
+      /// <summary>The Compression for the image.</summary>
+      public Compression Compression { get; set; }
+
       /// <param name="dictionary">The dictionary object o parse.</param>
       public PdfDictionaryImageMetaData(PdfDictionary dictionary)
       {
@@ -698,6 +706,8 @@ namespace PdfSharp.Pdf
           ColorSpace = PdfDictionaryColorSpace.Parse(colorSpace);
         }
         else ColorSpace = new PdfRGBColorSpace(); // Default to RGB Color Space
+
+        Compression = Compression.CCITTFAX4;
       }
 
       /// <summary>
@@ -709,7 +719,7 @@ namespace PdfSharp.Pdf
       /// <filterpriority>2</filterpriority>
       public override string ToString()
       {
-        Func<IEnumerable<string>> palette = () => ((PdfIndexedRGBColorSpace)ColorSpace).Palette.Select((c,i) => String.Format("[{0:000}]{1:x2}{2:x2}{3:x2}{4:x2}", i, c.A, c.R, c.G, c.B));
+        Func<IEnumerable<string>> palette = () => ((PdfIndexedRGBColorSpace)ColorSpace).Palette.Unpack().Select((c,i) => String.Format("[{0:000}]{1:x2}{2:x2}{3:x2}{4:x2}", i, c.A, c.R, c.G, c.B));
         return (String.Format("{0}x{1} @ {2}bpp{3}", Width, Height, BitsPerPixel, 
                                (ColorSpace is PdfIndexedRGBColorSpace) ? String.Format(" /Indexed({0}): {1}", ((PdfIndexedColorSpace) ColorSpace).Colors,
                                                                                                               String.Join(", ", palette.Invoke())) : null));

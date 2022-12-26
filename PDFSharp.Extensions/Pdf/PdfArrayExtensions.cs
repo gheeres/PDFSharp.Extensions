@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PdfSharpCore.Pdf;
+using System;
 
 // ReSharper disable once CheckNamespace
 namespace PdfSharp.Pdf

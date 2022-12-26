@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
-using PdfSharp.Pdf.Advanced;
+using SixLabors.ImageSharp;
+using PdfSharpCore.Pdf;
+using PdfSharpCore.Pdf.Advanced;
 
 // ReSharper disable once CheckNamespace
 namespace PdfSharp.Pdf

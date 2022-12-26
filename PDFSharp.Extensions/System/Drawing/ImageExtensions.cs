@@ -1,9 +1,10 @@
 ﻿using System.Collections.Generic;
-using PdfSharp.Drawing;
-using PdfSharp.Pdf;
+using SixLabors.ImageSharp;
+using PdfSharpCore.Drawing;
+using PdfSharpCore.Pdf;
 
 // ReSharper disable once CheckNamespace
-namespace System.Drawing
+namespace PdfSharp.Pdf.Drawing
 {
   /// <summary>
   /// Extension methods for the <see cref="Image"/> class.
@@ -38,7 +39,7 @@ namespace System.Drawing
         document.AddPage(page);
 
         XGraphics xGraphics = XGraphics.FromPdfPage(page);
-        XImage xImage = XImage.FromGdiPlusImage(image);
+        XImage xImage = XImage.FromImageSource(image.ToSource());
         xGraphics.DrawImage(xImage, 0, 0, image.Width, image.Height);
       }
       return (document);
