@@ -4,17 +4,20 @@
     <TargetFramework>net6.0</TargetFramework>
 
     <RootNamespace>PDFSharp.Extensions</RootNamespace>
-    <PackageId>PDFSharp.Extensions</PackageId>
-    <Version>0.1.2.3</Version>
-    <Authors>George Heeres</Authors>
-    <LicenseUrl>https://github.com/gheeres/PDFSharp.Extensions/blob/master/LICENSE</LicenseUrl>
-    <ProjectUrl>https://github.com/gheeres/PDFSharp.Extensions</ProjectUrl>
-    <RequireLicenseAcceptance>false</RequireLicenseAcceptance>
-    <Description>Extension methods for PDFSharp to support and simplify some common operations including image extraction.</Description>
+    <PackageId>PdfSharpCore.Extensions</PackageId>
+    <Version>0.1.2.4</Version>
+    <Authors>Open Inventions</Authors>
+    <Company>Open Inventions</Company>
+    <LicenseUrl>https://github.com/Open-Inventions/PDFSharp.Extensions/blob/master/LICENSE</LicenseUrl>
+    <ProjectUrl>https://github.com/Open-Inventions/PDFSharp.Extensions</ProjectUrl>
+    <RepositoryUrl>https://github.com/Open-Inventions/PDFSharp.Extensions</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RequireLicenseAcceptance>true</RequireLicenseAcceptance>
+    <Description>Extension methods for PdfSharpCore to support and simplify some common operations including image extraction.</Description>
     <ReleaseNotes>Initial release.</ReleaseNotes>
-    <Copyright>Copyright © 2014, George Heeres (gheeres@gmail.com)</Copyright>
+    <Copyright>Copyright © 2014, George Heeres (gheeres@gmail.com) + 2022, OI</Copyright>
     <Trademark>Licensed under MIT</Trademark>
-    <Tags>pdf pdfsharp image extension</Tags>
+    <PackageTags>pdf, pdfsharp, PdfSharpCore, image, extension</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
